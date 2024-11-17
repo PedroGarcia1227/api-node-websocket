@@ -24,7 +24,7 @@
             navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
     videoElement.style.display = 'block';
     videoElement.srcObject = stream;
-    const captureSocket = new WebSocket(`ws://localhost:3000/capture?room=${roomName}`);
+    const captureSocket = new WebSocket(`wss://${window.location.hostname}/capture?room=${roomName}`);
 
     captureSocket.onopen = () => {
         const videoTrack = stream.getVideoTracks()[0];
