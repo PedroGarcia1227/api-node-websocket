@@ -55,7 +55,7 @@
             // Limpar stream anterior, se houver
             cleanUpStream();
 
-            ws = new WebSocket(`ws://${window.location.hostname}:3000/live-stream?room=${roomName}`);
+            ws = new WebSocket(`wss://${window.location.hostname}/live-stream?room=${roomName}`);
 
             ws.onopen = () => {
                 console.log("Conectado ao streaming ao vivo.");
