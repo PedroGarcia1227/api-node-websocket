@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assistir Transmissão ao Vivo</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            height: 100vh;
+            margin: 0;
+            background-color: #333;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <h1>Transmissão ao Vivo</h1>
+    <input type="text" id="roomName" placeholder="Digite o nome da sala" required>
+    <button id="watchStream">Assistir Transmissão</button>
+
+    <script>
+        const roomNameInput = document.getElementById('roomName');
+        const watchStreamButton = document.getElementById('watchStream');
+        let ws = null;
+        let currentCameraId = null;
+
+        function cleanUpStream() {
+            // Fechar o WebSocket, se estiver aberto
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+
+            // Remover todos os elementos canvas
+            document.querySelectorAll('canvas').forEach(canvas => {
+                canvas.remove();
+            });
+
+            currentCameraId = null;
+            console.log("Stream cleaned up.");
+        }
+
+        watchStreamButton.onclick = () => {
+            const roomName = roomNameInput.value.trim();
+            if (!roomName) {
+                alert('Por favor, digite o nome da sala.');
+                return;
+            }
+
+            // Limpar stream anterior, se houver
+            cleanUpStream();
+
+            ws = new WebSocket(`ws://${window.location.hostname}:3000/live-stream?room=${roomName}`);
+
+            ws.onopen = () => {
+                console.log("Conectado ao streaming ao vivo.");
+            };
+
+            ws.onmessage = (event) => {
+                if (typeof event.data === "string") {
+                    const data = JSON.parse(event.data);
+
+                    if (data.type === 'stream-ended') {
+                        alert("A transmissão foi encerrada.");
+                        cleanUpStream(); // Limpar tudo ao encerrar a transmissão
+                    } else {
+                        currentCameraId = data.id; // Atualiza o cameraId
+                    }
+                } else if (event.data instanceof Blob) {
+                    if (currentCameraId) {
+                        let cameraCanvas = document.getElementById(`canvas-${currentCameraId}`);
+                        if (!cameraCanvas) {
+                            cameraCanvas = document.createElement('canvas');
+                            cameraCanvas.id = `canvas-${currentCameraId}`;
+                            cameraCanvas.width = 640;
+                            cameraCanvas.height = 360;
+                            document.body.appendChild(cameraCanvas);
+                        }
+
+                        const context = cameraCanvas.getContext('2d');
+                        const image = new Image();
+                        image.src = URL.createObjectURL(event.data);
+
+                        image.onload = () => {
+                            context.clearRect(0, 0, cameraCanvas.width, cameraCanvas.height); // Limpar antes de desenhar
+                            context.drawImage(image, 0, 0, cameraCanvas.width, cameraCanvas.height);
+                            URL.revokeObjectURL(image.src);
+                        };
+                    }
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error("Erro na conexão WebSocket:", error);
+                alert("Erro na conexão com o servidor de streaming.");
+                cleanUpStream(); // Limpar em caso de erro
+            };
+
+            ws.onclose = () => {
+                console.log("Desconectado do streaming ao vivo.");
+                cleanUpStream(); // Assegurar limpeza total
+            };
+        };
+    </script>
+</body>
+</html>

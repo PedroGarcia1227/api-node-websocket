@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Conexão de Vídeo ao Vivo</title>
+</head>
+<body>
+    <h2>Transmissão de Vídeo</h2>
+    <input type="text" id="roomName" placeholder="Digite o nome da sala" required>
+    <button id="startStream">Iniciar Transmissão</button>
+    <video id="video" autoplay style="display: none;"></video>
+    <script>
+        const videoElement = document.getElementById('video');
+        const roomNameInput = document.getElementById('roomName');
+        const startStreamButton = document.getElementById('startStream');
+
+        startStreamButton.onclick = () => {
+            const roomName = roomNameInput.value.trim();
+            if (!roomName) {
+                alert('Por favor, digite o nome da sala.');
+                return;
+            }
+
+            navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+    videoElement.style.display = 'block';
+    videoElement.srcObject = stream;
+    const captureSocket = new WebSocket(`ws://localhost:3000/capture?room=${roomName}`);
+
+    captureSocket.onopen = () => {
+        const videoTrack = stream.getVideoTracks()[0];
+        const imageCapture = new ImageCapture(videoTrack);
+
+        const sendFrame = () => {
+            imageCapture.grabFrame().then(imageBitmap => {
+                const canvas = document.createElement('canvas');
+                canvas.width = imageBitmap.width;
+                canvas.height = imageBitmap.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(imageBitmap, 0, 0);
+
+                canvas.toBlob(blob => {
+                    if (captureSocket.readyState === WebSocket.OPEN) {
+                        captureSocket.send(blob);
+                        requestAnimationFrame(sendFrame);
+                    }
+                }, 'image/jpeg');
+            }).catch(error => {
+                console.error("Erro ao capturar quadro:", error);
+                requestAnimationFrame(sendFrame);
+            });
+        };
+        sendFrame();
+    };
+}).catch(error => {
+    console.error("Erro ao acessar a câmera:", error);
+});
+        };
+    </script>
+</body>
+</html>
